@@ -1,154 +1,130 @@
-// Get the HTML elements we will interact with
-const inputBox = document.getElementById("inputBox"); // The input where user types the task
-const addBtn = document.getElementById("addBtn");     // The "Add" button
-const todoList = document.getElementById("todoList"); // The <ul> where tasks will be shown
+const inputBox = document.getElementById("inputBox");
+const addBtn = document.getElementById("addBtn");
+const clearBtn = document.getElementById("clearBtn");
+const todoList = document.getElementById("todoList");
 
-// To track if we're editing an existing task
-let editTarget = null;
+let editTarget = null; // Keeps track of task being edited
 
+// Load tasks from localStorage
+function getTodos() {
+  const todos = localStorage.getItem("todos");
+  return todos ? JSON.parse(todos) : [];
+}
 
-// ✅ FUNCTION: Get tasks from localStorage
-const getTodosFromLocal = () => {
-    const todos = localStorage.getItem("todos"); // Try to get the 'todos' array
-    return todos ? JSON.parse(todos) : [];       // If found, convert from string to array; if not, return empty array
-};
+// Save tasks to localStorage
+function saveTodos(todos) {
+  localStorage.setItem("todos", JSON.stringify(todos));
+}
 
+// Add or update a task
+function handleAdd() {
+  const text = inputBox.value.trim();
+  if (text === "") {
+    alert("Please enter something.");
+    return;
+  }
 
-// ✅ FUNCTION: Save tasks to localStorage
-const saveTodosToLocal = (todos) => {
-    localStorage.setItem("todos", JSON.stringify(todos)); // Convert array to string and save
-};
+  if (editTarget) {
+    const oldText = editTarget.querySelector("p").textContent;
+    editTarget.querySelector("p").textContent = text;
+    updateTodo(oldText, text);
+    addBtn.value = "Add";
+    editTarget = null;
+  } else {
+    addTaskToDOM(text);
+    const todos = getTodos();
+    todos.push(text);
+    saveTodos(todos);
+  }
 
+  inputBox.value = "";
+}
 
-// ✅ FUNCTION: Add or Update a task
-const addTodo = () => {
-    const inputText = inputBox.value.trim(); // Get and trim the input value (remove extra spaces)
+// Create a new task item in the DOM
+function addTaskToDOM(text) {
+  const li = document.createElement("li");
+  const p = document.createElement("p");
+  p.textContent = text;
+  li.appendChild(p);
 
-    // If nothing is typed, show an alert
-    if (inputText.length <= 0) {
-        alert('Write something!');
-        return;
+  const editBtn = document.createElement("button");
+  editBtn.innerText = "Edit";
+  editBtn.classList.add("btn", "editBtn");
+
+  const deleteBtn = document.createElement("button");
+  deleteBtn.innerText = "Remove";
+  deleteBtn.classList.add("btn", "deleteBtn");
+
+  li.appendChild(editBtn);
+  li.appendChild(deleteBtn);
+
+  todoList.appendChild(li);
+}
+
+// Edit or delete handler
+function handleListClick(e) {
+  const target = e.target;
+
+  if (target.classList.contains("deleteBtn")) {
+    const li = target.parentElement;
+    const text = li.querySelector("p").textContent;
+    todoList.removeChild(li);
+    removeTodo(text);
+
+    if (editTarget === li) {
+      editTarget = null;
+      addBtn.value = "Add";
+      inputBox.value = "";
     }
+  }
 
-    // If we are editing an existing task
-    if (editTarget) {
-        console.log(editTarget.querySelector("p").textContent); //if old task = ok then edit..= ok
-        
-        const oldText = editTarget.querySelector("p").textContent; // Get old text of the task
-        editTarget.querySelector("p").textContent = inputText;     // Replace with new text
+  if (target.classList.contains("editBtn")) {
+    editTarget = target.parentElement;
+    inputBox.value = editTarget.querySelector("p").textContent;
+    inputBox.focus();
+    addBtn.value = "Update";
+  }
+}
 
-        updateTodoInLocal(oldText, inputText);                     // Update localStorage with new text
+// Remove a task from storage
+function removeTodo(text) {
+  const todos = getTodos();
+  const updated = todos.filter(todo => todo !== text);
+  saveTodos(updated);
+}
 
-        addBtn.value = "Add";     // Change button text back to "Add"
-        editTarget = null;        // Clear the editing tracker
-        inputBox.value = "";      // Clear the input box
-        return;
-    }
+// Update edited task in storage
+function updateTodo(oldText, newText) {
+  const todos = getTodos();
+  const index = todos.indexOf(oldText);
+  if (index !== -1) {
+    todos[index] = newText;
+    saveTodos(todos);
+  }
+}
 
-    // If adding a brand new task
-    createTodoElement(inputText);          // Show on screen
+// Show stored tasks when page loads
+function loadTasks() {
+  const todos = getTodos();
+  todos.forEach(todo => addTaskToDOM(todo));
+}
 
-    const todos = getTodosFromLocal();     // Get all existing todos from storage
-    todos.push(inputText);                 // Add the new one
-    saveTodosToLocal(todos);               // Save updated list
+// Clear all tasks
+function clearAllTasks() {
+  if (confirm("Are you sure you want to delete all tasks?")) {
+    todoList.innerHTML = "";
+    localStorage.removeItem("todos");
+    editTarget = null;
+    addBtn.value = "Add";
+    inputBox.value = "";
+  }
+}
 
-    inputBox.value = "";                   // Clear the input box
-};
-
-
-// ✅ FUNCTION: Create and show a new task on the screen
-const createTodoElement = (text) => {
-    const li = document.createElement("li");    // Create new list item
-    const p = document.createElement("p");      // Create <p> to hold the task text
-    p.textContent = text;                       // Set the task text
-    li.appendChild(p);                          // Add <p> to <li>
-
-    // Create Remove Button
-    const deleteBtn = document.createElement("button");
-    deleteBtn.innerText = "Remove";
-    deleteBtn.classList.add("btn", "deleteBtn"); // Add CSS classes
-    li.appendChild(deleteBtn);                   // Add button to <li>
-
-    // Create Edit Button
-    const editBtn = document.createElement("button");
-    editBtn.innerText = "Edit";
-    editBtn.classList.add("btn", "editBtn");     // Add CSS classes
-    li.appendChild(editBtn);                     // Add button to <li>
-
-    // Add the final <li> to the <ul> (todoList)
-    todoList.appendChild(li);
-};
-
-
-// ✅ FUNCTION: Handle edit and delete buttons
-const updateTodo = (e) => {
-    const target = e.target; // Get the clicked element
-
-    // If Delete button clicked
-    if (target.classList.contains("deleteBtn")) {
-        const li = target.parentElement;                       // Get parent <li>
-        const text = li.querySelector("p").textContent;        // Get the task text
-        todoList.removeChild(li);                              // Remove <li> from screen
-
-        if (editTarget === li) {                               // If we were editing this, cancel editing
-            editTarget = null;
-            addBtn.value = "Add";
-            inputBox.value = "";
-        }
-
-        removeTodoFromLocal(text);                             // Remove from localStorage
-    }
-
-    // If Edit button clicked
-    if (target.classList.contains("editBtn")) {
-        editTarget = target.parentElement;                     // Set this <li> as the one we're editing
-        inputBox.value = editTarget.querySelector("p").textContent; // Show its text in input
-        inputBox.focus();                                      // Focus on input
-        addBtn.value = "Update";                               // Change button to "Update"
-    }
-};
-
-
-// ✅ FUNCTION: Remove a task from localStorage
-const removeTodoFromLocal = (text) => {
-    const todos = getTodosFromLocal();                  // Get saved tasks
-    const filteredTodos = todos.filter( (todo) => todo !== text); // Remove the one that matches
-    saveTodosToLocal(filteredTodos);                    // Save updated list
-};
-
-
-// ✅ FUNCTION: Update a task in localStorage
-const updateTodoInLocal = (oldText, newText) => {
-    const todos = getTodosFromLocal();                  // Get saved tasks
-    const index = todos.indexOf(oldText);               // Find the one to replace
-    if (index !== -1) {
-        todos[index] = newText;                         // Replace it
-        saveTodosToLocal(todos);                        // Save updated list
-    }
-};
-
-
-// ✅ FUNCTION: Show all tasks saved in localStorage (when page loads)
-const loadTodos = () => {
-    const todos = getTodosFromLocal();                  // Get tasks from storage
-    todos.forEach(todo => createTodoElement(todo));     // Show each one on the screen
-};
-
-
-// ✅ EVENT LISTENERS
-
-// When "Add" button is clicked
-addBtn.addEventListener("click", addTodo);
-
-// When any button inside the list is clicked (Edit/Delete)
-todoList.addEventListener("click", updateTodo);
-
-// When user presses Enter key inside the input box
+// Event Listeners
+addBtn.addEventListener("click", handleAdd);
+clearBtn.addEventListener("click", clearAllTasks);
+todoList.addEventListener("click", handleListClick);
 inputBox.addEventListener("keypress", (e) => {
-    if (e.key === "Enter") {
-        addTodo();
-    }
+  if (e.key === "Enter") handleAdd();
 });
-
-// When page fully loads, show stored tasks
-window.addEventListener("DOMContentLoaded", loadTodos);
+window.addEventListener("DOMContentLoaded", loadTasks);
